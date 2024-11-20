@@ -5,6 +5,16 @@ export interface AIServiceResponse {
   error?: string
 }
 
+export class AIServiceError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: any
+  ) {
+    super(message)
+  }
+}
+
 export class AIService {
   private static async callCommercialAPI(
     model: AIModel,
@@ -36,11 +46,11 @@ export class AIService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || `API调用失败: ${response.statusText}`)
+        throw new AIServiceError(errorData.error?.message || `API调用失败: ${response.statusText}`, 'API_CALL_FAILED')
       }
 
       if (!response.body) {
-        throw new Error('Response body is null')
+        throw new AIServiceError('Response body is null', 'RESPONSE_BODY_NULL')
       }
 
       const reader = response.body.getReader()
@@ -74,6 +84,12 @@ export class AIService {
       return { content: fullContent }
     } catch (error) {
       console.error('API调用错误:', error)
+      if (error instanceof AIServiceError) {
+        return {
+          content: '',
+          error: error.message
+        }
+      }
       return {
         content: '',
         error: error instanceof Error ? error.message : '未知错误'
@@ -104,11 +120,11 @@ export class AIService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `本地API调用失败: ${response.statusText}`)
+        throw new AIServiceError(errorData.error || `本地API调用失败: ${response.statusText}`, 'LOCAL_API_CALL_FAILED')
       }
 
       if (!response.body) {
-        throw new Error('Response body is null')
+        throw new AIServiceError('Response body is null', 'RESPONSE_BODY_NULL')
       }
 
       const reader = response.body.getReader()
@@ -133,6 +149,12 @@ export class AIService {
       return { content: fullContent }
     } catch (error) {
       console.error('本地API调用错误:', error)
+      if (error instanceof AIServiceError) {
+        return {
+          content: '',
+          error: error.message
+        }
+      }
       return {
         content: '',
         error: error instanceof Error ? error.message : '未知错误'

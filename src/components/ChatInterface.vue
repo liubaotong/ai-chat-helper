@@ -43,6 +43,7 @@
         @keydown.enter.prevent="sendMessage"
         :disabled="loading"
         placeholder="输入消息..."
+        @input="autoResizeTextarea"
       ></textarea>
       <button 
         @click="sendMessage"
@@ -61,6 +62,7 @@ import { AIService } from '../services/ai-service'
 import { StorageService } from '../utils/storage'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { debounce } from 'lodash-es'
 
 // 导入头像
 import { userAvatar, assistantAvatar } from '../assets/avatars'
@@ -127,7 +129,8 @@ const sendMessage = async () => {
     content: '',
     role: 'assistant',
     timestamp: Date.now(),
-    modelId: props.activeModel.id
+    modelId: props.activeModel.id,
+    status: 'streaming'
   }
   
   // 添加到消息列表
@@ -161,12 +164,14 @@ const sendMessage = async () => {
 
 // 监听消息变化自动滚动到底部
 watch(() => filteredMessages.value.length, () => {
-  setTimeout(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    }
-  }, 100)
-})
+  scrollToBottom()
+}, { flush: 'post' })
+
+const scrollToBottom = debounce(() => {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  }
+}, 100)
 
 watch(() => props.activeModel, (newModel) => {
   if (newModel) {
@@ -188,142 +193,116 @@ const formatTime = (timestamp: number) => {
     minute: '2-digit'
   })
 }
+
+// 添加输入框自动增高
+const autoResizeTextarea = (event: Event) => {
+  const textarea = event.target as HTMLTextAreaElement
+  textarea.style.height = 'auto'
+  textarea.style.height = textarea.scrollHeight + 'px'
+}
 </script>
 
 <style>
-/* Markdown 全局样式 */
+/* 基础样式变量 */
+:root {
+  --font-mono: 'Fira Code', Consolas, Monaco, 'Courier New', monospace;
+  --border-radius-sm: 4px;
+  --border-radius-lg: 8px;
+  --spacing-base: 1rem;
+  --font-size-sm: 0.9em;
+  --font-size-code: 13px;
+}
+
+/* 基础 Markdown 样式 */
 .markdown-content {
   font-size: 14px;
   line-height: 1.6;
   color: inherit;
 }
 
+/* 代码相关样式统一 */
+.code-base {
+  font-family: var(--font-mono) !important;
+  line-height: 1.5 !important;
+}
+
 /* 代码块样式 */
 .markdown-content pre {
   background-color: #1e1e1e !important;
-  border-radius: 8px !important;
-  padding: 16px !important;
+  border-radius: var(--border-radius-lg) !important;
+  padding: var(--spacing-base) !important;
   margin: 12px 0 !important;
   overflow-x: auto !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
 .markdown-content pre code {
-  color: #d4d4d4 !important;
-  font-family: 'Fira Code', Consolas, Monaco, 'Courier New', monospace !important;
-  font-size: 13px !important;
+  font-family: var(--font-mono) !important;
   line-height: 1.5 !important;
+  color: #d4d4d4 !important;
+  font-size: var(--font-size-code) !important;
   padding: 0 !important;
   background: none !important;
 }
 
 /* 行内代码样式 */
 .markdown-content code:not(pre code) {
+  font-family: var(--font-mono) !important;
+  line-height: 1.5 !important;
   background: rgba(175, 184, 193, 0.2) !important;
   padding: 0.2em 0.4em !important;
-  border-radius: 4px !important;
-  font-size: 0.9em !important;
-  font-family: 'Fira Code', Consolas, Monaco, 'Courier New', monospace !important;
+  border-radius: var(--border-radius-sm) !important;
+  font-size: var(--font-size-sm) !important;
   color: #476582 !important;
 }
 
-/* 列表样式 */
-.markdown-content ul,
-.markdown-content ol {
+/* 列表基础样式 */
+.list-base {
   padding-left: 1.5em !important;
   margin: 0.5em 0 !important;
   list-style-position: outside !important;
 }
 
-.markdown-content ul li,
-.markdown-content ol li {
+.list-item-base {
   margin: 0.3em 0 !important;
   padding-left: 0.3em !important;
 }
 
-.markdown-content ul {
-  list-style-type: disc !important;
+/* 用户消息样式覆盖 */
+.user-message-theme {
+  --text-color: white;
+  --bg-color-code: rgba(0, 0, 0, 0.3);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --code-color: #e6e9ec;
+  --link-color: #79b8ff;
 }
 
-.markdown-content ol {
-  list-style-type: decimal !important;
-}
-
-/* 段落样式 */
-.markdown-content p {
-  margin: 0.8em 0 !important;
-  line-height: 1.6 !important;
-}
-
-/* 用户消息中的样式覆盖 */
 .user .markdown-content {
-  color: white !important;
+  color: var(--text-color) !important;
 }
 
 .user .markdown-content pre {
-  background-color: rgba(0, 0, 0, 0.3) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--bg-color-code) !important;
+  border-color: var(--border-color) !important;
 }
 
-.user .markdown-content pre code {
-  color: #e6e9ec !important;
-}
-
+.user .markdown-content pre code,
 .user .markdown-content code:not(pre code) {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: #e6e9ec !important;
+  color: var(--code-color) !important;
 }
 
-.user .markdown-content ul,
-.user .markdown-content ol {
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-/* 链接样式 */
-.markdown-content a {
-  color: #0366d6 !important;
-  text-decoration: none !important;
-}
-
-.markdown-content a:hover {
-  text-decoration: underline !important;
-}
-
-.user .markdown-content a {
-  color: #79b8ff !important;
-}
-
-/* 引用样式 */
-.markdown-content blockquote {
-  margin: 1em 0 !important;
-  padding: 0.5em 1em !important;
-  color: #6a737d !important;
-  border-left: 0.25em solid #dfe2e5 !important;
-  background: rgba(0, 0, 0, 0.03) !important;
-}
-
-.user .markdown-content blockquote {
-  border-left-color: rgba(255, 255, 255, 0.3) !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* 添加打字机效果的样式 */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.message-content.streaming::after {
+/* 打字机效果 */
+.typing-cursor {
   content: '▋';
   display: inline-block;
   animation: blink 1s infinite;
-  margin-left: 2px;
-  color: #666;
+  margin-left: 0.1em;
+  vertical-align: baseline;
 }
 
-.user .message-content.streaming::after {
-  color: white;
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 </style>
 

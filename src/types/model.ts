@@ -7,10 +7,23 @@ export interface AIModel {
   isActive: boolean;
 }
 
-export interface ChatMessage {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant';
-  timestamp: number;
-  modelId: string;
-} 
+// 增强类型定义
+interface MessageBase {
+  id: string
+  timestamp: number
+  modelId: string
+}
+
+interface UserMessage extends MessageBase {
+  role: 'user'
+  content: string
+}
+
+interface AssistantMessage extends MessageBase {
+  role: 'assistant'
+  content: string
+  status: 'streaming' | 'completed' | 'failed'
+}
+
+type ChatMessage = UserMessage | AssistantMessage 
+export type { ChatMessage }
