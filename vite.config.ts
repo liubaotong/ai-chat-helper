@@ -11,14 +11,16 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/xai/, ''),
         secure: true,
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
             // 打印代理请求信息，用于调试
-            console.log('代理请求:', {
+            const debugInfo = {
               path: proxyReq.path,
               method: proxyReq.method,
               headers: proxyReq.getHeaders()
-            })
+            }
+            // eslint-disable-next-line no-console
+            console.log('代理请求:', debugInfo)
           })
         }
       }

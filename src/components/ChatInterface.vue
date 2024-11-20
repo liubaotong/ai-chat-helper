@@ -176,8 +176,8 @@ watch(() => props.activeModel, (newModel) => {
 
 // 添加 markdown 渲染函数
 const renderMarkdown = (content: string) => {
-  const html = marked(content)
-  return DOMPurify.sanitize(html)
+  const html = marked.parse(content) as string
+  return DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: false, RETURN_DOM: false })
 }
 
 // 添加时间格式化函数
