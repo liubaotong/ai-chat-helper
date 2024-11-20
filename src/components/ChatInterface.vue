@@ -46,10 +46,18 @@
         @input="autoResizeTextarea"
       ></textarea>
       <button 
+        v-if="!loading"
         @click="sendMessage"
-        :disabled="loading || !inputMessage.trim()"
+        :disabled="!inputMessage.trim()"
       >
         发送
+      </button>
+      <button 
+        v-else
+        @click="stopGeneration"
+        class="stop-button"
+      >
+        停止
       </button>
     </div>
   </div>
@@ -138,16 +146,20 @@ const sendMessage = async () => {
   currentStreamingMessage.value = assistantMessage
   
   try {
-    await AIService.sendMessage(
+    const result = await AIService.sendMessage(
       props.activeModel,
       filteredMessages.value,
       (content: string) => {
-        // 更新正在流式输出的消息内容
         if (currentStreamingMessage.value) {
           currentStreamingMessage.value.content = content
         }
       }
     )
+    
+    if (result.error === 'CANCELED') {
+      // 用户主动取消，不需要显示错误
+      return
+    }
     
     // 保存消息历史
     StorageService.saveMessages(messages.value)
@@ -199,6 +211,16 @@ const autoResizeTextarea = (event: Event) => {
   const textarea = event.target as HTMLTextAreaElement
   textarea.style.height = 'auto'
   textarea.style.height = textarea.scrollHeight + 'px'
+}
+
+// 添加停止生成的方法
+const stopGeneration = () => {
+  AIService.cancelStream()
+  if (currentStreamingMessage.value && currentStreamingMessage.value.role === 'assistant') {
+    currentStreamingMessage.value.status = 'completed'
+  }
+  loading.value = false
+  currentStreamingMessage.value = null
 }
 </script>
 
@@ -536,5 +558,13 @@ button:disabled {
   background: #ccc;
   cursor: not-allowed;
   transform: none;
+}
+
+.stop-button {
+  background: #d32f2f;
+}
+
+.stop-button:hover:not(:disabled) {
+  background: #b71c1c;
 }
 </style> 

@@ -16,12 +16,22 @@ export class AIServiceError extends Error {
 }
 
 export class AIService {
+  private static abortController: AbortController | null = null;
+
+  static cancelStream() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
   private static async callCommercialAPI(
     model: AIModel,
     messages: ChatMessage[],
     onProgress?: (content: string) => void
   ): Promise<AIServiceResponse> {
     try {
+      this.abortController = new AbortController();
       const requestUrl = `${model.apiEndpoint}/chat/completions`
       
       const requestBody = {
@@ -41,7 +51,8 @@ export class AIService {
           'Authorization': `Bearer ${model.apiKey}`,
           'Accept': 'text/event-stream',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: this.abortController.signal
       })
 
       if (!response.ok) {
@@ -89,6 +100,9 @@ export class AIService {
           content: '',
           error: error.message
         }
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
+        return { content: '', error: 'CANCELED' }
       }
       return {
         content: '',
