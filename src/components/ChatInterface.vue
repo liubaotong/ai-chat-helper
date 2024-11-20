@@ -430,7 +430,7 @@ const autoResizeTextarea = (event: Event) => {
 }
 
 /* 打字机效果优化 */
-.message-content.streaming::after {
+.message-content.streaming .markdown-content::after {
   content: '▋';
   display: inline-block;
   animation: blink 1s infinite;
