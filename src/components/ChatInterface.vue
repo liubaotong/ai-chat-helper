@@ -69,6 +69,7 @@ import type { AIModel, ChatMessage } from '../types/model'
 import { AIService } from '../services/ai-service'
 import { StorageService } from '../utils/storage'
 import { marked } from 'marked'
+import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import { debounce } from 'lodash-es'
 
@@ -191,11 +192,72 @@ watch(() => props.activeModel, (newModel) => {
   }
 })
 
-// 添加 markdown 渲染函数
-const renderMarkdown = (content: string) => {
-  const html = marked.parse(content) as string
-  return DOMPurify.sanitize(html, { RETURN_DOM_FRAGMENT: false, RETURN_DOM: false })
-}
+// 修改 renderMarkdown 函数
+const renderMarkdown = (content: string): string => {
+  if (!content) return '';
+  
+  try {
+    // 创建自定义扩展
+    const codeExtension = {
+      name: 'customCode',
+      level: 'block',
+      tokenizer(src: string) {
+        const match = src.match(/^```(\S*)\n([\s\S]*?)```/);
+        if (match) {
+          return {
+            type: 'customCode',
+            raw: match[0],
+            lang: match[1],
+            text: match[2]
+          };
+        }
+        return false;
+      },
+      renderer(token: any) {
+        const code = token.text.trim();
+        const lang = token.lang || '';
+
+        if (!lang) {
+          return `<pre><code>${code}</code></pre>`;
+        }
+
+        try {
+          const highlighted = hljs.highlight(code, {
+            language: lang,
+            ignoreIllegals: true
+          }).value;
+
+          const lines = highlighted.split('\n');
+          const codeLines = lines
+            .map((line, index) => (
+              `<div class="code-line">
+                <span class="line-number">${index + 1}</span>
+                <span class="line-content">${line || ' '}</span>
+              </div>`
+            ))
+            .join('');
+
+          return `<pre class="code-block"><code class="hljs language-${lang}">${codeLines}</code></pre>`;
+        } catch (e) {
+          return `<pre><code>${code}</code></pre>`;
+        }
+      }
+    };
+
+    // 使用扩展
+    marked.use({ extensions: [codeExtension] });
+
+    // 解析 markdown
+    const html = marked.parse(content);
+    return DOMPurify.sanitize(String(html), {
+      ADD_ATTR: ['class', 'language'],
+      ADD_TAGS: ['div', 'span', 'pre', 'code']
+    });
+  } catch (e) {
+    console.error('Markdown parsing failed:', e);
+    return content;
+  }
+};
 
 // 添加时间格式化函数
 const formatTime = (timestamp: number) => {
@@ -227,18 +289,18 @@ const stopGeneration = () => {
 <style>
 /* 基础样式变量 */
 :root {
-  --font-mono: 'Fira Code', Consolas, Monaco, 'Courier New', monospace;
+  --font-mono: 'Courier New', Consolas, Monaco, monospace;
   --border-radius-sm: 4px;
   --border-radius-lg: 8px;
   --spacing-base: 1rem;
   --font-size-sm: 0.9em;
-  --font-size-code: 13px;
+  --font-size-code: 15px;
 }
 
 /* 基础 Markdown 样式 */
 .markdown-content {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 20px;
+  line-height: 1.5;
   color: inherit;
 }
 
@@ -248,50 +310,69 @@ const stopGeneration = () => {
   line-height: 1.5 !important;
 }
 
-/* 代码块样式 */
+/* 更新代码块样式 */
 .markdown-content pre {
-  background-color: #1e1e1e !important;
-  border-radius: var(--border-radius-lg) !important;
-  padding: var(--spacing-base) !important;
-  margin: 12px 0 !important;
+  margin: 1em 0 !important;
+  padding: 1em 0 !important;
+  background: #1e1e1e !important;
+  border-radius: 6px !important;
   overflow-x: auto !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
 .markdown-content pre code {
-  font-family: var(--font-mono) !important;
-  line-height: 1.5 !important;
-  color: #d4d4d4 !important;
-  font-size: var(--font-size-code) !important;
+  display: block !important;
   padding: 0 !important;
-  background: none !important;
-}
-
-/* 行内代码样式 */
-.markdown-content code:not(pre code) {
   font-family: var(--font-mono) !important;
+  font-size: var(--font-size-code) !important;
   line-height: 1.5 !important;
-  background: rgba(175, 184, 193, 0.2) !important;
-  padding: 0.2em 0.4em !important;
-  border-radius: var(--border-radius-sm) !important;
-  font-size: var(--font-size-sm) !important;
-  color: #476582 !important;
 }
 
-.markdown-content ol, .markdown-content ul {
-  margin-left: 1.5em !important;
-}
-
-/* 列表基础样式 */
-.list-base {
+.markdown-content ul, .markdown-content ol {
   padding-left: 1.5em !important;
-  margin: 0.5em 0 !important;
-  list-style-position: outside !important;
 }
 
-.list-item-base {
-  margin: 0.3em 0 !important;
-  padding-left: 0.3em !important;
+.code-line {
+  display: flex !important;
+  min-height: 1.5em !important;
+  padding: 0 1em !important;
+}
+
+.code-line:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.line-number {
+  width: 3em !important;
+  text-align: right !important;
+  padding-right: 1em !important;
+  margin-right: 1em !important;
+  color: #666 !important;
+  border-right: 1px solid #404040 !important;
+  user-select: none !important;
+}
+
+.line-content {
+  flex: 1 !important;
+  white-space: pre !important;
+}
+
+/* 语法高亮颜色 */
+.hljs-keyword { color: #569cd6 !important; }
+.hljs-string { color: #ce9178 !important; }
+.hljs-comment { color: #6a9955 !important; }
+.hljs-function { color: #dcdcaa !important; }
+.hljs-number { color: #b5cea8 !important; }
+.hljs-operator { color: #d4d4d4 !important; }
+.hljs-class { color: #4ec9b0 !important; }
+.hljs-variable { color: #9cdcfe !important; }
+
+/* 用户消息中的代码块样式 */
+.user .markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+.user .code-line:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* 用户消息样式覆盖 */
@@ -433,26 +514,19 @@ const stopGeneration = () => {
 }
 
 .user .message-content {
-  color: white;
-  min-width: 50px;
-  background: #1976D2;
+  min-width: 100px;
 }
 
 .user .message-content::before {
   right: -15px;
-  border-left-color: #1976D2;
+  border-left-color: #ffffff;
 }
 
 .message-time {
-  font-size: 11px;
-  color: #999;
-  margin-top: 6px;
+  font-size: 16px;
+  margin-top: 4px;
   text-align: right;
   opacity: 0.8;
-}
-
-.user .message-time {
-  color: rgba(255, 255, 255, 0.8);
 }
 
 /* 打字机效果优化 */
