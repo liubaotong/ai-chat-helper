@@ -278,6 +278,10 @@ const stopGeneration = () => {
   color: #476582 !important;
 }
 
+.markdown-content ol, .markdown-content ul {
+  margin-left: 1.5em !important;
+}
+
 /* 列表基础样式 */
 .list-base {
   padding-left: 1.5em !important;
@@ -293,7 +297,7 @@ const stopGeneration = () => {
 /* 用户消息样式覆盖 */
 .user-message-theme {
   --text-color: white;
-  --bg-color-code: rgba(0, 0, 0, 0.3);
+  --bg-color-code: rgba(40, 38, 38, 0.3);
   --border-color: rgba(255, 255, 255, 0.1);
   --code-color: #e6e9ec;
   --link-color: #79b8ff;
@@ -452,7 +456,7 @@ const stopGeneration = () => {
 }
 
 /* 打字机效果优化 */
-.message-content.streaming .markdown-content::after {
+.message-content.streaming .markdown-content:empty::after {
   content: '▋';
   display: inline-block;
   animation: blink 1s infinite;
